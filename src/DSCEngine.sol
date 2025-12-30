@@ -116,6 +116,10 @@ contract DSCEngine is ReentrancyGuard {
 
     function depositCollateralAndMintDsc() external {}
 
+    /**
+     * Public Functions
+     */
+
     /*
      * @param tokenCollateralAddress: The ERC20 token address of the collateral you're depositing
      * @param amountCollateral: The amount of collateral you're depositing
@@ -207,7 +211,7 @@ contract DSCEngine is ReentrancyGuard {
     }
 
     /**
-     * Private & Internal View Functions
+     * Public & Internal View Functions
      */
 
     function getAccountCollateralValue(address user) public view returns (uint256 totalCollateralValueInUsd) {
