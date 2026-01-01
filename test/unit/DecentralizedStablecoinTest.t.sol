@@ -2,15 +2,14 @@
 
 pragma solidity ^0.8.30;
 
-import { DecentralizedStableCoin } from "../../src/DecentralizedStableCoin.sol";
-import { Test, console } from "forge-std/Test.sol";
-import { StdCheats } from "forge-std/StdCheats.sol";
+import {DecentralizedStableCoin} from "../../src/DecentralizedStableCoin.sol";
+import {Test, console} from "forge-std/Test.sol";
+import {StdCheats} from "forge-std/StdCheats.sol";
 
-contract DecentralizedStablecoinTest is StdCheats, Test {
+contract DecentralizedStableCoinTest is StdCheats, Test {
     DecentralizedStableCoin dsc;
 
     function setUp() public {
-        
         dsc = new DecentralizedStableCoin(msg.sender);
     }
 
