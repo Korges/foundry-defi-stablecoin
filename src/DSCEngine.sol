@@ -348,10 +348,7 @@ contract DSCEngine is ReentrancyGuard {
      * External & Public View & Pure Functions
      */
 
-    function calculateHealthFactor(
-        uint256 totalDscMinted,
-        uint256 collateralValueInUsd
-    )
+    function calculateHealthFactor(uint256 totalDscMinted, uint256 collateralValueInUsd)
         external
         pure
         returns (uint256)

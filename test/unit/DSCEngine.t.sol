@@ -7,8 +7,9 @@ import {DSCEngine} from "../../src/DSCEngine.sol";
 import {DecentralizedStableCoin} from "../../src/DecentralizedStableCoin.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {ERC20Mock} from "../mocks/ERC20Mock.sol";
-import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
-import { MockFailedTransferFrom } from "../mocks/MockFailedTransferFrom.sol";
+import {MockV3Aggregator} from "../mocks/MockV3Aggregator.sol";
+import {MockFailedMintDSC} from "../mocks/MockFailedMintDSC.sol";
+import {MockFailedTransferFrom} from "../mocks/MockFailedTransferFrom.sol";
 import {Test, console} from "forge-std/Test.sol";
 
 contract DSCEngineTest is Test {
@@ -119,7 +120,7 @@ contract DSCEngineTest is Test {
 
     function testCanDepositedCollateralAndGetAccountInfo() public depositedCollateral {
         console.log("contract:", weth);
-        
+
         (uint256 totalDscMinted, uint256 collateralValueInUsd) = dsce.getAccountInformation(user);
         console.log("collateral:", collateralValueInUsd);
         uint256 expectedDepositedAmount = dsce.getTokenAmountFromUsd(weth, collateralValueInUsd);
@@ -127,7 +128,6 @@ contract DSCEngineTest is Test {
         console.log("expectedDepositedAmount:", expectedDepositedAmount);
         console.log("amountCollateral:", amountCollateral);
         assertEq(expectedDepositedAmount, amountCollateral);
-        
     }
 
     // depositCollateralAndMintDsc Tests
@@ -156,5 +156,75 @@ contract DSCEngineTest is Test {
     function testCanMintWithDepositedCollateral() public depositedCollateralAndMintedDsc {
         uint256 userBalance = dsc.balanceOf(user);
         assertEq(userBalance, amountToMint);
+    }
+
+    // mintDsc Tests
+
+    function testRevertsIfMintFails() public {
+        // Arrange - Setup
+        address owner = msg.sender;
+
+        vm.prank(owner);
+        MockFailedMintDSC mockDsc = new MockFailedMintDSC(owner);
+
+        tokenAddresses = [weth];
+        feedAddresses = [ethUsdPriceFeed];
+
+        DSCEngine mockDsce = new DSCEngine(tokenAddresses, feedAddresses, address(mockDsc));
+
+        // prank AS OWNER when transferring ownership
+        vm.prank(owner);
+        mockDsc.transferOwnership(address(mockDsce));
+
+        // Arrange - User
+        vm.startPrank(user);
+        ERC20Mock(weth).approve(address(mockDsce), amountCollateral);
+
+        // Act / Assert
+        vm.expectRevert(DSCEngine.DSCEngine__MintFailed.selector);
+        mockDsce.depositCollateralAndMintDsc(weth, amountCollateral, amountToMint);
+        vm.stopPrank();
+    }
+
+    function testRevertsIfMintAmountIsZero() public {
+        vm.startPrank(user);
+        ERC20Mock(weth).approve(address(dsce), amountCollateral);
+        dsce.depositCollateralAndMintDsc(weth, amountCollateral, amountToMint);
+        vm.expectRevert(DSCEngine.DSCEngine__NeedsMoreThanZero.selector);
+        dsce.mintDsc(0);
+        vm.stopPrank();
+    }
+
+    function testRevertsIfMintAmountBreaksHealthFactor() public depositedCollateral {
+        // 0xe580cc6100000000000000000000000000000000000000000000000006f05b59d3b20000
+        // 0xe580cc6100000000000000000000000000000000000000000000003635c9adc5dea00000
+        (, int256 price,,,) = MockV3Aggregator(ethUsdPriceFeed).latestRoundData();
+        amountToMint = (amountCollateral * (uint256(price) * dsce.getAdditionalFeedPrecision())) / dsce.getPrecision();
+
+        vm.startPrank(user);
+        uint256 expectedHealthFactor =
+            dsce.calculateHealthFactor(amountToMint, dsce.getUsdValue(weth, amountCollateral));
+        vm.expectRevert(abi.encodeWithSelector(DSCEngine.DSCEngine__BreaksHealthFactor.selector, expectedHealthFactor));
+        dsce.mintDsc(amountToMint);
+        vm.stopPrank();
+    }
+
+    function testCanMintDsc() public depositedCollateral {
+        vm.prank(user);
+        dsce.mintDsc(amountToMint);
+
+        uint256 userBalance = dsc.balanceOf(user);
+        assertEq(userBalance, amountToMint);
+    }
+
+    function testCannotMintWithoutDepositingCollateral() public {
+        vm.startPrank(user);
+
+        // Do NOT deposit collateral; do NOT approve anything.
+        // Try to mint — should revert because health factor will be broken.
+        vm.expectRevert(abi.encodeWithSelector(DSCEngine.DSCEngine__BreaksHealthFactor.selector, 0));
+        dsce.mintDsc(amountToMint);
+
+        vm.stopPrank();
     }
 }
