@@ -387,6 +387,14 @@ contract DSCEngine is ReentrancyGuard {
         return ADDITIONAL_FEED_PRECISION;
     }
 
+    function getLiquidationBonus() external pure returns (uint256) {
+        return LIQUIDATION_BONUS;
+    }
+
+    function getLiquidationPrecision() external pure returns (uint256) {
+        return LIQUIDATION_PRECISION;
+    }
+
     function getHealthFactor(address user) external view returns (uint256) {
         return _healthFactor(user);
     }
